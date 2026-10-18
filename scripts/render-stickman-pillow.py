@@ -69,25 +69,22 @@ try:
         for x, y in (hand_l, hand_r):
             d.ellipse((int(x-10), int(y-10), int(x+10), int(y+10)), fill=joint)
 
-        # Cyclic gait with separated left/right tracks and bent swing knees.
-        # Foot lift follows a smooth half-wave; opposite legs remain out of phase.
+        # Wide, non-crossing gait: left and right feet stay on separate tracks.
+        # A smaller stride prevents the feet and lower legs from overlapping.
         ground_y = 950
         s = math.sin(phase)
-        cphase = math.cos(phase)
-        stride = 30 * s
-        lift_l = 32 * max(0, s) ** 0.8
-        lift_r = 32 * max(0, -s) ** 0.8
-        foot_l = (cx - 44 + stride, ground_y - lift_l)
-        foot_r = (cx + 44 - stride, ground_y - lift_r)
-        # Knees bend forward during swing and stay stable during stance.
-        bend_l = 22 * max(0, s)
-        bend_r = -22 * max(0, -s)
-        knee_l = (cx - 27 + stride * 0.30 + bend_l, 785 + bob - lift_l * 0.38)
-        knee_r = (cx + 27 - stride * 0.30 + bend_r, 785 + bob - lift_r * 0.38)
+        stride = 20 * s
+        lift_l = 30 * max(0, s) ** 0.8
+        lift_r = 30 * max(0, -s) ** 0.8
+        foot_l = (cx - 62 + stride, ground_y - lift_l)
+        foot_r = (cx + 62 - stride, ground_y - lift_r)
+        bend_l = 12 * max(0, s)
+        bend_r = -12 * max(0, -s)
+        knee_l = (cx - 34 + stride * 0.20 + bend_l, 785 + bob - lift_l * 0.35)
+        knee_r = (cx + 34 - stride * 0.20 + bend_r, 785 + bob - lift_r * 0.35)
         for a, b in ((hip, knee_l), (knee_l, foot_l),
                      (hip, knee_r), (knee_r, foot_r)):
             line(a, b)
-        # Small shoes make foot direction and contact easier to read.
         shoe_l = 1 if s >= 0 else -1
         shoe_r = -shoe_l
         d.line((int(foot_l[0]-2), int(foot_l[1]), int(foot_l[0]+15*shoe_l), int(foot_l[1])),
