@@ -32,12 +32,12 @@ proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
 try:
     for i in range(FPS * SECONDS):
         t = i / FPS
-        phase = t * 2 * math.pi * 1.25
+        phase = t * 2 * math.pi * 1.15
         im = Image.new("RGB", (W, H), (16, 22, 47))
         d = ImageDraw.Draw(im)
 
-        cx = 115 + 45 * t
-        bob = 2.5 * (1 - math.cos(2 * phase)) / 2
+        cx = 125 + 42 * t
+        bob = 2.0 * (1 - math.cos(2 * phase)) / 2
         head_r = 43
         hx, hy = cx, 340 + bob
         white, accent, joint = (245, 248, 255), (50, 214, 197), (255, 200, 87)
@@ -59,31 +59,35 @@ try:
         line(neck, shoulder, accent, 16)
         line(shoulder, hip, white, 17)
 
-        # Arms counter-swing against the legs; elbows and hands form clear bends.
-        swing = 28 * math.sin(phase)
-        elbow_l, hand_l = (cx-48+swing*.35, 510+bob), (cx-58+swing, 575+bob)
-        elbow_r, hand_r = (cx+48-swing*.35, 510+bob), (cx+58-swing, 575+bob)
+        # Arms counter-swing against the legs with a readable elbow bend.
+        swing = 34 * math.sin(phase)
+        elbow_l, hand_l = (cx-48+swing*.28, 510+bob), (cx-56+swing, 578+bob)
+        elbow_r, hand_r = (cx+48-swing*.28, 510+bob), (cx+56-swing, 578+bob)
         for a, b in ((shoulder, elbow_l), (elbow_l, hand_l),
                      (shoulder, elbow_r), (elbow_r, hand_r)):
             line(a, b)
         for x, y in (hand_l, hand_r):
             d.ellipse((int(x-10), int(y-10), int(x+10), int(y+10)), fill=joint)
 
-        # Two-phase gait with a wide track: feet cannot cross the body center.
-        # The stance foot stays on the ground; only the swing foot lifts.
+        # Cyclic gait with separated left/right tracks and bent swing knees.
+        # Foot lift follows a smooth half-wave; opposite legs remain out of phase.
         ground_y = 950
         s = math.sin(phase)
-        stride = 28 * s
-        lift_l = 30 * max(0, s)
-        lift_r = 30 * max(0, -s)
-        foot_l = (cx - 52 + stride, ground_y - lift_l)
-        foot_r = (cx + 52 - stride, ground_y - lift_r)
-        knee_l = (cx - 35 + stride * 0.30, 785 + bob - lift_l * 0.30)
-        knee_r = (cx + 35 - stride * 0.30, 785 + bob - lift_r * 0.30)
+        cphase = math.cos(phase)
+        stride = 30 * s
+        lift_l = 32 * max(0, s) ** 0.8
+        lift_r = 32 * max(0, -s) ** 0.8
+        foot_l = (cx - 44 + stride, ground_y - lift_l)
+        foot_r = (cx + 44 - stride, ground_y - lift_r)
+        # Knees bend forward during swing and stay stable during stance.
+        bend_l = 22 * max(0, s)
+        bend_r = -22 * max(0, -s)
+        knee_l = (cx - 27 + stride * 0.30 + bend_l, 785 + bob - lift_l * 0.38)
+        knee_r = (cx + 27 - stride * 0.30 + bend_r, 785 + bob - lift_r * 0.38)
         for a, b in ((hip, knee_l), (knee_l, foot_l),
                      (hip, knee_r), (knee_r, foot_r)):
             line(a, b)
-        # Shoes are aligned with travel and stay above the baseline during swing.
+        # Small shoes make foot direction and contact easier to read.
         shoe_l = 1 if s >= 0 else -1
         shoe_r = -shoe_l
         d.line((int(foot_l[0]-2), int(foot_l[1]), int(foot_l[0]+15*shoe_l), int(foot_l[1])),
