@@ -10,12 +10,12 @@ if ! command -v ffmpeg >/dev/null 2>&1; then
   exit 1
 fi
 
-# Avoid drawtext/libfreetype because many Android FFmpeg builds omit it.
-# This baseline prototype uses frame-varying shapes plus an audio track.
+# Use frame index n for movement; avoid drawtext/libfreetype.
+# Three high-contrast filled shapes should visibly move over 10 seconds.
 ffmpeg -y -hide_banner -loglevel warning \
   -f lavfi -i "color=c=0x10162f:s=720x1280:r=24:d=10" \
   -f lavfi -i "sine=frequency=440:sample_rate=44100:duration=10" \
-  -vf "drawbox=x='t*150-180':y=230:w=180:h=180:color=0x32d6c5@0.95:t=fill,drawbox=x='700-t*100':y=850:w=140:h=140:color=0xffc857@0.95:t=fill,drawbox=x=40:y='mod(t*100,1100)':w=640:h=8:color=white@0.7:t=fill" \
+  -vf "drawbox=x='mod(n*8,900)-180':y=230:w=180:h=180:color=0x32d6c5:t=fill,drawbox=x='700-mod(n*5,900)':y=850:w=140:h=140:color=0xffc857:t=fill,drawbox=x=40:y='mod(n*10,1200)':w=640:h=12:color=white:t=fill" \
   -map 0:v:0 -map 1:a:0 -t 10 -r 24 -c:v libx264 -pix_fmt yuv420p \
   -c:a aac -b:a 128k -movflags +faststart "$OUT"
 
@@ -31,6 +31,12 @@ AUDIO="$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -o
 [ "$WIDTH" = "720" ] && [ "$HEIGHT" = "1280" ] || { echo "FAIL: dimensions ${WIDTH}x${HEIGHT}"; exit 1; }
 awk -v d="$DURATION" 'BEGIN { exit !(d >= 9.8 && d <= 10.3) }' || { echo "FAIL: duration $DURATION"; exit 1; }
 [ -n "$AUDIO" ] || { echo "FAIL: audio missing"; exit 1; }
-echo "PASS: motion-graphics Short rendered and validated"
+
+# Ensure sampled frames differ, so a valid container with a static blank frame cannot pass.
+FRAME_A="$(ffmpeg -v error -ss 1 -i "$OUT" -frames:v 1 -vf scale=1:1,format=gray -f rawvideo - 2>/dev/null | od -An -tu1 | tr -d ' ')"
+FRAME_B="$(ffmpeg -v error -ss 8 -i "$OUT" -frames:v 1 -vf scale=1:1,format=gray -f rawvideo - 2>/dev/null | od -An -tu1 | tr -d ' ')"
+[ -n "$FRAME_A" ] && [ -n "$FRAME_B" ] || { echo "FAIL: could not sample rendered frames"; exit 1; }
+echo "PASS: video rendered and basic metadata validated"
 echo "Duration: $DURATION s | Resolution: ${WIDTH}x${HEIGHT} | Audio: $AUDIO"
+echo "Note: visually inspect the output; metadata validation cannot guarantee animation quality."
 echo "Output: $OUT"
