@@ -32,12 +32,12 @@ proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
 try:
     for i in range(FPS * SECONDS):
         t = i / FPS
-        phase = t * 2 * math.pi * 1.8
+        phase = t * 2 * math.pi * 1.25
         im = Image.new("RGB", (W, H), (16, 22, 47))
         d = ImageDraw.Draw(im)
 
         cx = 115 + 45 * t
-        bob = 3 * abs(math.sin(phase))
+        bob = 2.5 * (1 - math.cos(2 * phase)) / 2
         head_r = 43
         hx, hy = cx, 340 + bob
         white, accent, joint = (245, 248, 255), (50, 214, 197), (255, 200, 87)
@@ -69,19 +69,27 @@ try:
         for x, y in (hand_l, hand_r):
             d.ellipse((int(x-10), int(y-10), int(x+10), int(y+10)), fill=joint)
 
-        # Compact alternating gait prevents the feet from crossing each other.
-        # A lifted foot rises during swing; the other remains at ground level.
-        stride = 34 * math.sin(phase)
-        lift_l = 30 * max(0, math.sin(phase))
-        lift_r = 30 * max(0, -math.sin(phase))
+        # Alternating walk cycle: stance foot stays on the ground; swing foot lifts.
+        # Side offsets remain separated, and knees follow the moving feet without crossing.
         ground_y = 950
-        knee_l = (cx-30 + stride*.28, 780+bob-lift_l*.35)
-        foot_l = (cx-43 + stride, ground_y-lift_l)
-        knee_r = (cx+30 - stride*.28, 780+bob-lift_r*.35)
-        foot_r = (cx+43 - stride, ground_y-lift_r)
+        cycle = math.sin(phase)
+        stride = 38 * cycle
+        lift_l = 34 * max(0, math.sin(phase))
+        lift_r = 34 * max(0, -math.sin(phase))
+        foot_l = (cx - 34 + stride, ground_y - lift_l)
+        foot_r = (cx + 34 - stride, ground_y - lift_r)
+        knee_l = (cx - 28 + stride * 0.42, 780 + bob - lift_l * 0.42)
+        knee_r = (cx + 28 - stride * 0.42, 780 + bob - lift_r * 0.42)
         for a, b in ((hip, knee_l), (knee_l, foot_l),
                      (hip, knee_r), (knee_r, foot_r)):
             line(a, b)
+        # Short shoes make foot direction and ground contact easier to read.
+        shoe_l = 1 if cycle >= 0 else -1
+        shoe_r = -shoe_l
+        d.line((int(foot_l[0]-2), int(foot_l[1]), int(foot_l[0]+16*shoe_l), int(foot_l[1])),
+               fill=white, width=10)
+        d.line((int(foot_r[0]-2), int(foot_r[1]), int(foot_r[0]+16*shoe_r), int(foot_r[1])),
+               fill=white, width=10)
         d.line((35, ground_y+8, 685, ground_y+8), fill=(68,83,120), width=4)
         proc.stdin.write(im.tobytes())
     proc.stdin.close()
