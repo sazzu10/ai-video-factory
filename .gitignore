@@ -1,0 +1,13 @@
+output/*
+!output/.gitkeep
+.env
+.env.*
+!.env.example
+*.mp4
+*.mov
+*.webm
+*.wav
+*.mp3
+__pycache__/
+node_modules/
+.DS_Store
