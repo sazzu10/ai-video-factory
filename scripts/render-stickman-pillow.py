@@ -59,36 +59,36 @@ try:
         line(neck, shoulder, accent, 16)
         line(shoulder, hip, white, 17)
 
-        # Arms swing opposite to legs, with compact elbow travel.
-        swing = 32 * math.sin(phase)
-        elbow_l, hand_l = (cx-48-swing*.3, 520+bob), (cx-65-swing, 590+bob)
-        elbow_r, hand_r = (cx+48+swing*.3, 520+bob), (cx+65+swing, 590+bob)
+        # Arms counter-swing against the legs; elbows and hands form clear bends.
+        swing = 28 * math.sin(phase)
+        elbow_l, hand_l = (cx-48+swing*.35, 510+bob), (cx-58+swing, 575+bob)
+        elbow_r, hand_r = (cx+48-swing*.35, 510+bob), (cx+58-swing, 575+bob)
         for a, b in ((shoulder, elbow_l), (elbow_l, hand_l),
                      (shoulder, elbow_r), (elbow_r, hand_r)):
             line(a, b)
         for x, y in (hand_l, hand_r):
             d.ellipse((int(x-10), int(y-10), int(x+10), int(y+10)), fill=joint)
 
-        # Alternating walk cycle: stance foot stays on the ground; swing foot lifts.
-        # Side offsets remain separated, and knees follow the moving feet without crossing.
+        # Two-phase gait with a wide track: feet cannot cross the body center.
+        # The stance foot stays on the ground; only the swing foot lifts.
         ground_y = 950
-        cycle = math.sin(phase)
-        stride = 38 * cycle
-        lift_l = 34 * max(0, math.sin(phase))
-        lift_r = 34 * max(0, -math.sin(phase))
-        foot_l = (cx - 34 + stride, ground_y - lift_l)
-        foot_r = (cx + 34 - stride, ground_y - lift_r)
-        knee_l = (cx - 28 + stride * 0.42, 780 + bob - lift_l * 0.42)
-        knee_r = (cx + 28 - stride * 0.42, 780 + bob - lift_r * 0.42)
+        s = math.sin(phase)
+        stride = 28 * s
+        lift_l = 30 * max(0, s)
+        lift_r = 30 * max(0, -s)
+        foot_l = (cx - 52 + stride, ground_y - lift_l)
+        foot_r = (cx + 52 - stride, ground_y - lift_r)
+        knee_l = (cx - 35 + stride * 0.30, 785 + bob - lift_l * 0.30)
+        knee_r = (cx + 35 - stride * 0.30, 785 + bob - lift_r * 0.30)
         for a, b in ((hip, knee_l), (knee_l, foot_l),
                      (hip, knee_r), (knee_r, foot_r)):
             line(a, b)
-        # Short shoes make foot direction and ground contact easier to read.
-        shoe_l = 1 if cycle >= 0 else -1
+        # Shoes are aligned with travel and stay above the baseline during swing.
+        shoe_l = 1 if s >= 0 else -1
         shoe_r = -shoe_l
-        d.line((int(foot_l[0]-2), int(foot_l[1]), int(foot_l[0]+16*shoe_l), int(foot_l[1])),
+        d.line((int(foot_l[0]-2), int(foot_l[1]), int(foot_l[0]+15*shoe_l), int(foot_l[1])),
                fill=white, width=10)
-        d.line((int(foot_r[0]-2), int(foot_r[1]), int(foot_r[0]+16*shoe_r), int(foot_r[1])),
+        d.line((int(foot_r[0]-2), int(foot_r[1]), int(foot_r[0]+15*shoe_r), int(foot_r[1])),
                fill=white, width=10)
         d.line((35, ground_y+8, 685, ground_y+8), fill=(68,83,120), width=4)
         proc.stdin.write(im.tobytes())
