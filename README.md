@@ -2,14 +2,14 @@
 
 A separate ₹0-first project for producing vertical YouTube Shorts with two pipelines:
 
-- **Motion graphics:** animated text and shapes rendered to MP4.
+- **Motion graphics:** animated shapes and effects rendered to MP4; text overlays can be added in a later renderer.
 - **Cartoon animation:** genuine image-to-video generation through a compatible hosted inference service or available GPU runtime.
 
 Android Termux is the lightweight controller. Heavy AI video generation is not assumed to run locally on Android.
 
 ## Current prototype
 
-The first milestone is a 10-second, 720x1280 motion-graphics MP4 with moving shapes, text and audio.
+The first milestone is a 10-second, 720x1280 motion-graphics MP4 with moving shapes and audio. The baseline renderer deliberately avoids FFmpeg's optional `drawtext` filter, which may be absent from Android builds.
 
 ### Termux quick start
 
@@ -21,7 +21,7 @@ chmod +x scripts/render-motion-short.sh
 ./scripts/render-motion-short.sh
 ```
 
-The script checks FFmpeg's `drawtext` filter and a font file, renders `output/motion-short.mp4`, then validates duration, resolution and audio with FFprobe when available. If a dependency is missing, it reports the blocker.
+The script renders `output/motion-short.mp4`, then validates duration, resolution and audio with FFprobe when available. If FFmpeg is missing, it reports the blocker.
 
 ## Project boundaries
 
@@ -35,8 +35,9 @@ The script checks FFmpeg's `drawtext` filter and a font file, renders `output/mo
 
 1. Render and validate one motion-graphics Short.
 2. Visually inspect actual changing frames.
-3. Test one genuine cartoon image-to-video clip using a compatible runtime.
-4. Add a shared job manifest and robust status/error tracking.
-5. Only after quality checks, add an explicit user-controlled handoff to the existing publishing agent.
+3. Add a text overlay path that works on Android without relying on unavailable FFmpeg filters.
+4. Test one genuine cartoon image-to-video clip using a compatible runtime.
+5. Add a shared job manifest and robust status/error tracking.
+6. Only after quality checks, add an explicit user-controlled handoff to the existing publishing agent.
 
 See [architecture notes](docs/architecture.md).
