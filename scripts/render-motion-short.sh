@@ -5,25 +5,25 @@ OUT_DIR="$ROOT/output"
 OUT="$OUT_DIR/motion-short.mp4"
 mkdir -p "$OUT_DIR"
 
-if ! command -v ffmpeg >/dev/null 2>&1; then
-  echo "FAIL: ffmpeg is not installed. On Termux, run: pkg install ffmpeg" >&2
-  exit 1
-fi
+for tool in ffmpeg ffprobe; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "FAIL: $tool is missing. Install with: pkg install ffmpeg" >&2
+    exit 1
+  fi
+done
 
-# Drawbox on Android FFmpeg may not expose frame index n. Use time-based
-# expressions (t) for motion and avoid drawtext/libfreetype entirely.
+# Render moving layers with overlay (verified on the user's FFmpeg build).
+# Avoid drawtext and avoid drawbox position expressions.
 ffmpeg -y -hide_banner -loglevel warning \
   -f lavfi -i "color=c=0x10162f:s=720x1280:r=24:d=10" \
+  -f lavfi -i "color=c=0x32d6c5:s=180x180:r=24:d=10" \
+  -f lavfi -i "color=c=0xffc857:s=140x140:r=24:d=10" \
+  -f lavfi -i "color=c=white:s=640x12:r=24:d=10" \
   -f lavfi -i "sine=frequency=440:sample_rate=44100:duration=10" \
-  -vf "drawbox=x='max(0,min(540, t*55))':y=230:w=180:h=180:color=0x32d6c5:t=fill,drawbox=x='max(0,min(580,700-t*40))':y=850:w=140:h=140:color=0xffc857:t=fill,drawbox=x=40:y='mod(t*100,1200)':w=640:h=12:color=white:t=fill" \
-  -map 0:v:0 -map 1:a:0 -t 10 -r 24 -c:v libx264 -pix_fmt yuv420p \
+  -filter_complex "[0:v][1:v]overlay=x='max(0,min(540,t*55))':y=230:shortest=1[v1];[v1][2:v]overlay=x='max(0,min(580,700-t*40))':y=850:shortest=1[v2];[v2][3:v]overlay=x=40:y='mod(t*100,1200)':shortest=1[v]" \
+  -map "[v]" -map 4:a:0 -t 10 -r 24 -c:v libx264 -pix_fmt yuv420p \
   -c:a aac -b:a 128k -movflags +faststart "$OUT"
 
-if ! command -v ffprobe >/dev/null 2>&1; then
-  echo "WARN: ffprobe not found; render completed but validation is incomplete."
-  echo "Output: $OUT"
-  exit 0
-fi
 DURATION="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$OUT")"
 WIDTH="$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "$OUT")"
 HEIGHT="$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "$OUT")"
@@ -31,7 +31,15 @@ AUDIO="$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -o
 [ "$WIDTH" = "720" ] && [ "$HEIGHT" = "1280" ] || { echo "FAIL: dimensions ${WIDTH}x${HEIGHT}"; exit 1; }
 awk -v d="$DURATION" 'BEGIN { exit !(d >= 9.8 && d <= 10.3) }' || { echo "FAIL: duration $DURATION"; exit 1; }
 [ -n "$AUDIO" ] || { echo "FAIL: audio missing"; exit 1; }
-echo "PASS: video rendered and basic metadata validated"
+
+# Visual-motion gate: compare pixel hashes from two separated timestamps.
+HASH_A="$(ffmpeg -v error -ss 1 -i "$OUT" -frames:v 1 -f framemd5 - 2>/dev/null | awk -F', ' '/^[0-9]+,/ {h=$NF} END {print h}')"
+HASH_B="$(ffmpeg -v error -ss 8 -i "$OUT" -frames:v 1 -f framemd5 - 2>/dev/null | awk -F', ' '/^[0-9]+,/ {h=$NF} END {print h}')"
+[ -n "$HASH_A" ] && [ -n "$HASH_B" ] || { echo "FAIL: could not verify frame hashes"; exit 1; }
+[ "$HASH_A" != "$HASH_B" ] || { echo "FAIL: sampled frames are identical; motion not detected"; exit 1; }
+
+echo "PASS: motion-graphics Short rendered and frame-change check passed"
 echo "Duration: $DURATION s | Resolution: ${WIDTH}x${HEIGHT} | Audio: $AUDIO"
-echo "Note: visually inspect output; metadata validation cannot guarantee animation quality."
+echo "Frame hash 1s: $HASH_A"
+echo "Frame hash 8s: $HASH_B"
 echo "Output: $OUT"
