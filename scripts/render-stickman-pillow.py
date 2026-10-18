@@ -19,7 +19,6 @@ if not ffmpeg or not ffprobe:
 W, H, FPS, SECONDS = 720, 1280, 24, 10
 OUT = "output/stickman-pillow.mp4"
 os.makedirs("output", exist_ok=True)
-
 cmd = [
     ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
     "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}",
@@ -37,25 +36,19 @@ try:
         im = Image.new("RGB", (W, H), (16, 22, 47))
         d = ImageDraw.Draw(im)
 
-        # Character travels across the scene; keep the gait readable.
         cx = 115 + 45 * t
-        bob = 4 * abs(math.sin(phase))
+        bob = 3 * abs(math.sin(phase))
         head_r = 43
-        head_c = (cx, 340 + bob)
-        white = (245, 248, 255)
-        accent = (50, 214, 197)
-        joint = (255, 200, 87)
+        hx, hy = cx, 340 + bob
+        white, accent, joint = (245, 248, 255), (50, 214, 197), (255, 200, 87)
         width = 13
 
-        hx, hy = head_c
         d.ellipse((hx-head_r, hy-head_r, hx+head_r, hy+head_r), fill=accent)
         d.ellipse((hx-15, hy-7, hx-7, hy+1), fill=(16,22,47))
         d.ellipse((hx+7, hy-7, hx+15, hy+1), fill=(16,22,47))
         d.arc((hx-17, hy-2, hx+17, hy+22), 10, 170, fill=(16,22,47), width=4)
 
-        neck = (cx, hy + head_r)
-        shoulder = (cx, 435 + bob)
-        hip = (cx, 625 + bob)
+        neck, shoulder, hip = (cx, hy+head_r), (cx, 435+bob), (cx, 625+bob)
 
         def line(a, b, fill=white, w=width):
             d.line((int(a[0]), int(a[1]), int(b[0]), int(b[1])), fill=fill, width=w)
@@ -66,37 +59,30 @@ try:
         line(neck, shoulder, accent, 16)
         line(shoulder, hip, white, 17)
 
-        # Opposing arm swing, attached at shoulder and elbow.
-        swing = 42 * math.sin(phase)
-        elbow_l = (cx - 48 - swing * 0.35, 520 + bob)
-        hand_l = (cx - 65 - swing, 590 + bob)
-        elbow_r = (cx + 48 + swing * 0.35, 520 + bob)
-        hand_r = (cx + 65 + swing, 590 + bob)
-        line(shoulder, elbow_l)
-        line(elbow_l, hand_l)
-        line(shoulder, elbow_r)
-        line(elbow_r, hand_r)
-        for p in (hand_l, hand_r):
-            x, y = p
+        # Arms swing opposite to legs, with compact elbow travel.
+        swing = 32 * math.sin(phase)
+        elbow_l, hand_l = (cx-48-swing*.3, 520+bob), (cx-65-swing, 590+bob)
+        elbow_r, hand_r = (cx+48+swing*.3, 520+bob), (cx+65+swing, 590+bob)
+        for a, b in ((shoulder, elbow_l), (elbow_l, hand_l),
+                     (shoulder, elbow_r), (elbow_r, hand_r)):
+            line(a, b)
+        for x, y in (hand_l, hand_r):
             d.ellipse((int(x-10), int(y-10), int(x+10), int(y+10)), fill=joint)
 
-        # Alternating leg swing. One foot stays on the ground while the
-        # opposite foot lifts, reducing the obvious floating-foot effect.
-        stride = 68 * math.sin(phase)
-        lift_l = 34 * max(0, math.sin(phase))
-        lift_r = 34 * max(0, -math.sin(phase))
+        # Compact alternating gait prevents the feet from crossing each other.
+        # A lifted foot rises during swing; the other remains at ground level.
+        stride = 34 * math.sin(phase)
+        lift_l = 30 * max(0, math.sin(phase))
+        lift_r = 30 * max(0, -math.sin(phase))
         ground_y = 950
-        knee_l = (cx - 34 + stride * 0.42, 780 + bob - lift_l * 0.45)
-        foot_l = (cx - 42 + stride, ground_y - lift_l)
-        knee_r = (cx + 34 - stride * 0.42, 780 + bob - lift_r * 0.45)
-        foot_r = (cx + 42 - stride, ground_y - lift_r)
-        line(hip, knee_l)
-        line(knee_l, foot_l)
-        line(hip, knee_r)
-        line(knee_r, foot_r)
-
-        # Ground baseline: feet in stance phase touch this line.
-        d.line((35, ground_y + 8, 685, ground_y + 8), fill=(68, 83, 120), width=4)
+        knee_l = (cx-30 + stride*.28, 780+bob-lift_l*.35)
+        foot_l = (cx-43 + stride, ground_y-lift_l)
+        knee_r = (cx+30 - stride*.28, 780+bob-lift_r*.35)
+        foot_r = (cx+43 - stride, ground_y-lift_r)
+        for a, b in ((hip, knee_l), (knee_l, foot_l),
+                     (hip, knee_r), (knee_r, foot_r)):
+            line(a, b)
+        d.line((35, ground_y+8, 685, ground_y+8), fill=(68,83,120), width=4)
         proc.stdin.write(im.tobytes())
     proc.stdin.close()
     code = proc.wait()
