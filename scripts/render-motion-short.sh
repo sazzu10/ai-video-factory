@@ -9,25 +9,13 @@ if ! command -v ffmpeg >/dev/null 2>&1; then
   echo "FAIL: ffmpeg is not installed. On Termux, run: pkg install ffmpeg" >&2
   exit 1
 fi
-if ! ffmpeg -hide_banner -filters 2>/dev/null | grep -q drawtext; then
-  echo "FAIL: this FFmpeg build lacks drawtext (libfreetype)." >&2
-  exit 1
-fi
 
-FONT=""
-for candidate in "$PREFIX/share/fonts/TTF/DejaVuSans.ttf" "$PREFIX/share/fonts/dejavu/DejaVuSans.ttf" "/system/fonts/Roboto-Regular.ttf"; do
-  if [ -f "$candidate" ]; then FONT="$candidate"; break; fi
-done
-if [ -z "$FONT" ]; then
-  echo "FAIL: no supported font found. Install fonts or update FONT candidates in this script." >&2
-  exit 1
-fi
-FONT_ESCAPED="$(printf '%s' "$FONT" | sed 's/:/\\:/g')"
-
+# Avoid drawtext/libfreetype because many Android FFmpeg builds omit it.
+# This baseline prototype uses frame-varying shapes plus an audio track.
 ffmpeg -y -hide_banner -loglevel warning \
   -f lavfi -i "color=c=0x10162f:s=720x1280:r=24:d=10" \
   -f lavfi -i "sine=frequency=440:sample_rate=44100:duration=10" \
-  -vf "drawbox=x='(mod(t*170\\,900)-180)':y=210:w=180:h=180:color=0x32d6c5@0.85:t=fill,drawbox=x='(700-mod(t*120\\,900))':y=850:w=140:h=140:color=0xffc857@0.9:t=fill,drawtext=fontfile='$FONT_ESCAPED':text='IDEA TO VIDEO':fontcolor=white:fontsize=54:x=(w-text_w)/2:y=470,drawtext=fontfile='$FONT_ESCAPED':text='MOTION GRAPHICS TEST':fontcolor=0x32d6c5:fontsize=27:x=(w-text_w)/2:y=545,drawtext=fontfile='$FONT_ESCAPED':text='10 SECOND PROTOTYPE':fontcolor=white:fontsize=25:x=(w-text_w)/2:y=1160" \
+  -vf "drawbox=x='t*150-180':y=230:w=180:h=180:color=0x32d6c5@0.95:t=fill,drawbox=x='700-t*100':y=850:w=140:h=140:color=0xffc857@0.95:t=fill,drawbox=x=40:y='mod(t*100,1100)':w=640:h=8:color=white@0.7:t=fill" \
   -map 0:v:0 -map 1:a:0 -t 10 -r 24 -c:v libx264 -pix_fmt yuv420p \
   -c:a aac -b:a 128k -movflags +faststart "$OUT"
 
