@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Render a procedural walking stickman to MP4 via Pillow + FFmpeg."""
 import math
+import os
 import shutil
 import subprocess
 import sys
@@ -17,7 +18,6 @@ if not ffmpeg or not ffprobe:
 
 W, H, FPS, SECONDS = 720, 1280, 24, 10
 OUT = "output/stickman-pillow.mp4"
-import os
 os.makedirs("output", exist_ok=True)
 
 cmd = [
@@ -37,9 +37,9 @@ try:
         im = Image.new("RGB", (W, H), (16, 22, 47))
         d = ImageDraw.Draw(im)
 
-        # Character travels across the scene; gait joints remain connected.
+        # Character travels across the scene; keep the gait readable.
         cx = 115 + 45 * t
-        bob = 8 * abs(math.sin(phase))
+        bob = 4 * abs(math.sin(phase))
         head_r = 43
         head_c = (cx, 340 + bob)
         white = (245, 248, 255)
@@ -47,7 +47,6 @@ try:
         joint = (255, 200, 87)
         width = 13
 
-        # Head, eyes and smile.
         hx, hy = head_c
         d.ellipse((hx-head_r, hy-head_r, hx+head_r, hy+head_r), fill=accent)
         d.ellipse((hx-15, hy-7, hx-7, hy+1), fill=(16,22,47))
@@ -67,8 +66,8 @@ try:
         line(neck, shoulder, accent, 16)
         line(shoulder, hip, white, 17)
 
-        # Opposing arm swing; hands join visibly to forearms.
-        swing = 48 * math.sin(phase)
+        # Opposing arm swing, attached at shoulder and elbow.
+        swing = 42 * math.sin(phase)
         elbow_l = (cx - 48 - swing * 0.35, 520 + bob)
         hand_l = (cx - 65 - swing, 590 + bob)
         elbow_r = (cx + 48 + swing * 0.35, 520 + bob)
@@ -81,24 +80,23 @@ try:
             x, y = p
             d.ellipse((int(x-10), int(y-10), int(x+10), int(y+10)), fill=joint)
 
-        # Alternating legs, connected at hip, knee and foot.
-        stride = 75 * math.sin(phase)
-        lift_a = 32 * max(0, math.sin(phase))
-        lift_b = 32 * max(0, -math.sin(phase))
-        knee_l = (cx - 38 + stride * 0.45, 755 + bob - lift_a)
-        foot_l = (cx - 52 + stride, 895 + bob - lift_a)
-        knee_r = (cx + 38 - stride * 0.45, 755 + bob - lift_b)
-        foot_r = (cx + 52 - stride, 895 + bob - lift_b)
+        # Alternating leg swing. One foot stays on the ground while the
+        # opposite foot lifts, reducing the obvious floating-foot effect.
+        stride = 68 * math.sin(phase)
+        lift_l = 34 * max(0, math.sin(phase))
+        lift_r = 34 * max(0, -math.sin(phase))
+        ground_y = 950
+        knee_l = (cx - 34 + stride * 0.42, 780 + bob - lift_l * 0.45)
+        foot_l = (cx - 42 + stride, ground_y - lift_l)
+        knee_r = (cx + 34 - stride * 0.42, 780 + bob - lift_r * 0.45)
+        foot_r = (cx + 42 - stride, ground_y - lift_r)
         line(hip, knee_l)
         line(knee_l, foot_l)
         line(hip, knee_r)
         line(knee_r, foot_r)
-        # Ground line and subtle motion marks.
-        d.line((35, 930, 685, 930), fill=(68, 83, 120), width=4)
-        for k in range(3):
-            x = (cx - 90 - k * 35 - int(t * 80)) % W
-            d.line((x, 480 + k*18, x+18, 480 + k*18), fill=(68,83,120), width=3)
 
+        # Ground baseline: feet in stance phase touch this line.
+        d.line((35, ground_y + 8, 685, ground_y + 8), fill=(68, 83, 120), width=4)
         proc.stdin.write(im.tobytes())
     proc.stdin.close()
     code = proc.wait()
